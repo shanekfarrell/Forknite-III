@@ -1,0 +1,6 @@
+{
+  "name": "AI Website Builder",
+  "description": "A minimalist developer portal and showcase for high-quality AI-generated websites.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
