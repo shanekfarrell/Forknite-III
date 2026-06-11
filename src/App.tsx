@@ -120,6 +120,16 @@ export default function App() {
   const tabs = ['Home', 'Inspiration', 'Videos', 'Production', 'Resources'];
   const [activeTab, setActiveTab] = useState('Home');
 
+  // Graceful fallback lists for the Laptop Image to handle various git branch configurations
+  const laptopImageCandidates = [
+    "https://raw.githubusercontent.com/shanekfarrell/Forknite-III/main/assets/.aistudio/Laptop%20Image.png",
+    "https://raw.githubusercontent.com/shanekfarrell/Forknite-III/master/assets/.aistudio/Laptop%20Image.png",
+    "https://raw.githubusercontent.com/shanekfarrell/Forknite-II/main/assets/.aistudio/Laptop%20Image.png",
+    "https://raw.githubusercontent.com/shanekfarrell/Forknite-II/master/assets/.aistudio/Laptop%20Image.png",
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80"
+  ];
+  const [laptopImgIndex, setLaptopImgIndex] = useState(0);
+
   // Cursor-driven parallax state
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -414,10 +424,15 @@ export default function App() {
                     <div className="hidden md:flex flex-col items-center justify-center p-4 h-full relative z-20 overflow-hidden">
                       <div className="w-full max-w-md aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-neutral-200/50 bg-[#c0c0c8]/20 flex items-center justify-center">
                         <img
-                          src="https://raw.githubusercontent.com/shanekfarrell/Forknite-III/main/assets/.aistudio/Laptop%20Image.png"
+                          src={laptopImageCandidates[laptopImgIndex]}
                           alt="Laptop Reference Layout"
                           className="w-full h-full object-cover select-none"
                           referrerPolicy="no-referrer"
+                          onError={() => {
+                            if (laptopImgIndex < laptopImageCandidates.length - 1) {
+                              setLaptopImgIndex(prev => prev + 1);
+                            }
+                          }}
                         />
                       </div>
                     </div>
