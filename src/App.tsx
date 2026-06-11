@@ -1,11 +1,114 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, ArrowRight, Play, Check, CircleAlert, Globe, HelpCircle, ChevronLeft, ChevronRight, Video, Copy, ExternalLink } from 'lucide-react';
+import CardCarousel3D from './components/CardCarousel3D';
+
+interface VideoScrubberProps {
+  src: string;
+  className?: string;
+}
+
+function VideoScrubber({ src, className }: VideoScrubberProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const prevXRef = useRef<number | null>(null);
+  const targetTimeRef = useRef<number>(0);
+  const isSeekingRef = useRef<boolean>(false);
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      targetTimeRef.current = videoRef.current.currentTime || 0;
+    }
+  };
+
+  const handleSeeked = () => {
+    isSeekingRef.current = false;
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (Math.abs(video.currentTime - targetTimeRef.current) > 0.01) {
+      isSeekingRef.current = true;
+      video.currentTime = targetTimeRef.current;
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const duration = video.duration;
+      if (!duration || isNaN(duration)) return;
+
+      const currentX = e.clientX;
+      if (prevXRef.current === null) {
+        prevXRef.current = currentX;
+        return;
+      }
+
+      const delta = currentX - prevXRef.current;
+      prevXRef.current = currentX;
+
+      const SENSITIVITY = 0.8;
+      const timeOffset = (delta / window.innerWidth) * SENSITIVITY * duration;
+
+      let newTargetTime = targetTimeRef.current + timeOffset;
+      newTargetTime = Math.max(0, Math.min(duration, newTargetTime));
+      targetTimeRef.current = newTargetTime;
+
+      if (!isSeekingRef.current) {
+        isSeekingRef.current = true;
+        video.currentTime = targetTimeRef.current;
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      preload="auto"
+      onLoadedMetadata={handleLoadedMetadata}
+      onSeeked={handleSeeked}
+      className={className}
+    />
+  );
+}
 
 export default function App() {
   // Navigation active tab
   const tabs = ['Home', 'Inspiration', 'Videos', 'Production', 'Resources'];
   const [activeTab, setActiveTab] = useState('Home');
+
+  // Cursor-driven parallax state
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Find coordinates relative to window center
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const pctX = (e.clientX - centerX) / centerX;
+      const pctY = (e.clientY - centerY) / centerY;
+      
+      // Shift limits: 25px max X, 15px max Y
+      setMousePos({
+        x: pctX * 25,
+        y: pctY * 15
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   // Carousel Media Items (Matching screenshot style perfectly)
   const carouselItems = [
@@ -14,6 +117,7 @@ export default function App() {
       title: 'How a reusable upper-stage program moved from thermal risk to stable qualification.',
       tag: 'Integration Review',
       image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+      video: 'https://d8j0ntlcm91z4.cloudfront.net/user_39hjpHRtdbwGsUr2vJ8EKY4rkvE/hf_20260601_120750_aab8806d-ef49-4055-81d2-32a482803ef1.mp4',
       duration: '04:20',
       category: 'Reusable systems',
     },
@@ -22,6 +126,7 @@ export default function App() {
       title: 'Inside the test cell where telemetry, vibration, and injector response converge.',
       tag: 'Hot-Fire Campaign',
       image: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
+      video: 'https://d8j0ntlcm91z4.cloudfront.net/user_39hjpHRtdbwGsUr2vJ8EKY4rkvE/hf_20260608_101316_f23416c8-9fd7-4564-9e44-065bccbbd56b.mp4',
       duration: '03:45',
       category: 'Validation',
     },
@@ -30,16 +135,9 @@ export default function App() {
       title: 'Analyzing structural acoustics and modal resonance under high-stress entry phases.',
       tag: 'Structural Dynamics',
       image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80',
+      video: 'https://d8j0ntlcm91z4.cloudfront.net/user_39hjpHRtdbwGsUr2vJ8EKY4rkvE/hf_20260611_121656_00824bdc-ec1a-4431-bb15-c83b19c83d52.mp4',
       duration: '05:12',
       category: 'Mechanical Studio',
-    },
-    {
-      id: 4,
-      title: 'Real-time telemetry networks streaming raw orbital sensor feeds onto modern canvas layers.',
-      tag: 'Telemetry Matrix',
-      image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80',
-      duration: '02:40',
-      category: 'Software Labs',
     }
   ];
 
@@ -122,30 +220,7 @@ export default function App() {
     setCarouselIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
   };
 
-  // Scroll effect: as user scrolls section 2, move carousel images
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!sectionRef.current) return;
-      
-      const rect = sectionRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      
-      // Calculate how far into the viewport Section 2 is.
-      const entry = viewportHeight - rect.top;
-      const totalRange = rect.height + viewportHeight;
-      const progress = Math.max(0, Math.min(0.99, entry / totalRange));
-      
-      // Map progress smoothly into the carousel index range
-      const newIndex = Math.floor(progress * carouselItems.length);
-      
-      if (newIndex >= 0 && newIndex < carouselItems.length) {
-        setCarouselIndex(newIndex);
-      }
-    };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [carouselItems.length]);
 
   // Modern high-end top navigation active state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -207,7 +282,8 @@ export default function App() {
       {(() => {
         const renderHeader = (isDark: boolean) => (
           <header className="w-full py-6 px-6 md:px-12 lg:px-24 flex flex-col sm:flex-row items-center justify-between gap-4 z-40 relative">
-            <div className="w-10 hidden sm:block" />
+            {/* Spacer replacing Myosin Logo to visually preserve header centering balance */}
+            <div className="w-[120px] hidden sm:block" />
 
             {/* Dynamic Capsule Filter Toggle - Recreating screenshot style 2 exactly */}
             <nav className="relative">
@@ -242,17 +318,8 @@ export default function App() {
               </div>
             </nav>
 
-            {/* Minimal status indicator */}
-            <div className="hidden sm:flex items-center gap-3">
-              <div className={`flex items-center gap-2 text-xs py-1.5 px-3 rounded-md border font-mono transition-colors ${
-                isDark 
-                  ? 'text-neutral-400 bg-neutral-900 border-neutral-800' 
-                  : 'text-neutral-500 bg-neutral-50 border-neutral-100'
-              }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>v1.0.4 Online</span>
-              </div>
-            </div>
+            {/* Balance/alignment spacer replacing the status indicator */}
+            <div className="w-10 hidden sm:block" />
           </header>
         );
 
@@ -335,8 +402,53 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Space balancing spacer */}
-                <div className="py-4" />
+                {/* Testimonials Marquee above the fold at the very bottom of Hero */}
+                <div className="relative w-full overflow-hidden py-4 bg-neutral-50/40 border-t border-neutral-100/50 mt-auto select-none">
+                  {/* Blur/Fade left & right */}
+                  <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+                  <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+
+                  {/* Seamless horizontal sliding container track */}
+                  <motion.div
+                    className="flex gap-8 w-max pl-8"
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{
+                      repeat: Infinity,
+                      repeatType: "loop",
+                      duration: 27.5,
+                      ease: "linear"
+                    }}
+                  >
+                    {marqueeItems.map((item, idx) => (
+                      <div
+                        key={`${item.id}-${idx}`}
+                        className="flex items-center gap-4 bg-white border border-neutral-100/90 rounded-xl p-4 shadow-xs max-w-sm shrink-0 select-none hover:shadow-xs"
+                      >
+                        {/* Circle avatar placeholder */}
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-100 border border-neutral-150 shrink-0">
+                          <img
+                            src={item.avatar}
+                            alt={item.name}
+                            className="w-full h-full object-cover grayscale brightness-105"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+
+                        {/* Testimonial Quote and User Bio */}
+                        <div className="flex flex-col text-left">
+                          <p className="text-neutral-700 text-xs font-sans italic leading-relaxed mb-1 font-medium max-w-xs">
+                            "{item.quote}"
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-neutral-900 font-semibold text-[11px] tracking-wide">
+                              {item.name}
+                            </h4>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
               </section>
 
               {/* SECTION 2: CAROUSEL - Exactly 100vh (h-screen), perfectly aligned and sitting completely below the fold */}
@@ -393,16 +505,29 @@ export default function App() {
                             key={`${item.id}-${offset}`} 
                             className={containerClass}
                           >
-                            {/* Rounded Image Container - Identical height for all three cards means they line up perfectly at both top and bottom! */}
+                            {/* Rounded Image/Video Container - Identical height for all three cards means they line up perfectly at both top and bottom! */}
                             <div className="w-full h-[220px] sm:h-[260px] md:h-[280px] lg:h-[330px] rounded-2xl overflow-hidden bg-neutral-100 relative shadow-md border border-neutral-200/40 mb-5 cursor-pointer">
-                              <img
-                                src={item.image}
-                                alt={item.title}
-                                className={`w-full h-full object-cover transition-all duration-750 ease-out group-hover:scale-[1.03] ${
-                                  isMain ? 'grayscale-0 contrast-100 brightness-100' : 'grayscale brightness-[0.75] contrast-[0.95] saturate-50'
-                                }`}
-                                referrerPolicy="no-referrer"
-                              />
+                              {item.video ? (
+                                <video
+                                  src={item.video}
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                  className={`w-full h-full object-cover transition-all duration-750 ease-out group-hover:scale-[1.03] ${
+                                    isMain ? 'grayscale-0 contrast-100 brightness-105' : 'grayscale brightness-[0.75] contrast-[0.95] saturate-50'
+                                  }`}
+                                />
+                              ) : (
+                                <img
+                                  src={item.image}
+                                  alt={item.title}
+                                  className={`w-full h-full object-cover transition-all duration-750 ease-out group-hover:scale-[1.03] ${
+                                    isMain ? 'grayscale-0 contrast-100 brightness-100' : 'grayscale brightness-[0.75] contrast-[0.95] saturate-50'
+                                  }`}
+                                  referrerPolicy="no-referrer"
+                                />
+                              )}
                               
                               {/* Grey Overlayer for non-active cards */}
                               {!isMain && (
@@ -486,72 +611,7 @@ export default function App() {
                 </div>
               </section>
 
-              {/* SECTION 3: TESTIMONIALS - Exactly 100vh (h-screen) with loop bar */}
-              <section className="w-full h-screen min-h-screen flex flex-col justify-center bg-white relative border-t border-neutral-100 overflow-hidden">
-                <div className="w-full max-w-7xl mx-auto px-6 md:px-16 lg:px-24 mb-12">
-                  <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase block mb-1">
-                    PEER CONFIRMATION
-                  </span>
-                  <h2 className="font-display font-medium text-xl sm:text-2xl tracking-tight text-neutral-900">
-                    What They Say About The Indie Web
-                  </h2>
-                </div>
 
-                {/* Outer marquee viewport with gradient masks */}
-                <div className="relative w-full overflow-hidden py-8 bg-neutral-50/50 border-y border-neutral-100/60">
-                  
-                  {/* Blur/Fade left & right */}
-                  <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-
-                  {/* Seamless horizontal sliding container track */}
-                  <motion.div
-                    className="flex gap-8 w-max pl-8"
-                    animate={{ x: ["0%", "-50%"] }}
-                    transition={{
-                      repeat: Infinity,
-                      repeatType: "loop",
-                      duration: 25,
-                      ease: "linear"
-                    }}
-                  >
-                    {marqueeItems.map((item, idx) => (
-                      <div
-                        key={`${item.id}-${idx}`}
-                        className="flex items-center gap-5 bg-white border border-neutral-100/90 rounded-2xl p-6 shadow-xs max-w-md shrink-0 select-none hover:shadow-xs"
-                      >
-                        {/* Circle avatar placeholder */}
-                        <div className="w-14 h-14 rounded-full overflow-hidden bg-neutral-100 border border-neutral-155 shrink-0">
-                          <img
-                            src={item.avatar}
-                            alt={item.name}
-                            className="w-full h-full object-cover grayscale brightness-105"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-
-                        {/* Testimonial Quote and User Bio */}
-                        <div className="flex flex-col text-left">
-                          <p className="text-neutral-700 text-xs sm:text-sm font-sans italic leading-relaxed mb-1.5 font-medium max-w-xs">
-                            "{item.quote}"
-                          </p>
-                          <div>
-                            <h4 className="text-neutral-900 font-semibold text-xs tracking-wide">
-                              {item.name}
-                            </h4>
-                            <span className="text-[10px] font-mono text-neutral-400">
-                              {item.role}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </motion.div>
-                </div>
-
-                {/* Dynamic prompt space balance */}
-                <div className="py-6" />
-              </section>
             </>
           );
         }
@@ -610,9 +670,8 @@ export default function App() {
                     
                     {/* COLUMN 1: WHAT TO SCREENSHOT */}
                     <div className="flex flex-col text-left group">
-                      
-                      {/* Three Logos Side by Side Container */}
-                      <div className="flex items-center justify-around h-[230px] mb-5 w-full bg-transparent border-0">
+                                         {/* Logo Container - Only Pinterest */}
+                      <div className="flex items-center justify-center h-[230px] mb-5 w-full bg-transparent border-0">
                         
                         {/* PINTEREST */}
                         <a 
@@ -623,49 +682,12 @@ export default function App() {
                           title="Pinterest"
                           id="hyperlink_pinterest"
                         >
-                          {/* SVG for Pinterest */}
-                          <svg className="w-16 h-16 text-[#bd081c] fill-current" viewBox="0 0 24 24">
-                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.08 3.16 9.4 7.63 11.16-.1-.95-.2-2.4.04-3.43.22-.93 1.4-5.93 1.4-5.93s-.36-.72-.36-1.77c0-1.66.96-2.9 2.12-2.9 1 0 1.48.75 1.48 1.65 0 1-.64 2.5-.97 3.9-.28 1.17.58 2.13 1.73 2.13 2.08 0 3.68-2.2 3.68-5.37 0-2.8-2-4.77-4.9-4.77-3.33 0-5.3 2.5-5.3 5.1 0 1 .4 2.1.9 2.7.1.1.1 0 .2-.2l.34-1.4c0-.1 0-.17-.12-.31-.5-.65-.77-1.57-.77-2.53 0-3.27 2.38-6.28 6.86-6.28 3.6 0 6.4 2.57 6.4 6 0 3.58-2.25 6.47-5.38 6.47-1.05 0-2.04-.55-2.38-1.2l-.65 2.47c-.24.9-.88 2.03-1.3 2.7 1.13.35 2.33.54 3.57.54 6.63 0 12-5.37 12-12S18.63 0 12 0z"/>
-                          </svg>
-                          <span className="text-xs font-mono tracking-wider font-semibold text-neutral-500 mt-2">
-                            Pinterest
-                          </span>
-                        </a>
-
-                        {/* LAND-BOOK */}
-                        <a 
-                          href="https://land-book.com" 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="flex flex-col items-center justify-center transition-transform duration-300 hover:scale-105"
-                          title="Land-book"
-                          id="hyperlink_landbook"
-                        >
-                          {/* SVG for Land-book Leaf/Web pattern */}
-                          <svg className="w-16 h-16 text-[#11b262] fill-current" viewBox="0 0 24 24">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5 2.5-5.5 3-5.5c.28 0 .5.22.5.5v5zm1.18-5.35c.16.29.32.55.32.75 0 1-.95 1.6-1.5 1.6s-.5-.45-.5-.73c0-.18.15-.41.3-.67.45-.75 1.13-1.85 1.38-1.5 0 .15 0 .35 0 .55zM12 4c4.41 0 8 3.59 8 8 0 1.25-.29 2.43-.8 3.49C17.7 13.43 14.93 12 12 12s-5.7 1.43-7.2 3.49C4.29 14.43 4 13.25 4 12c0-4.41 3.59-8 8-8z"/>
-                          </svg>
-                          <span className="text-xs font-mono tracking-wider font-semibold text-neutral-500 mt-2 text-center truncate w-full">
-                            Land-Book
-                          </span>
-                        </a>
-
-                        {/* DRIBBBLE */}
-                        <a 
-                          href="https://dribbble.com" 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="flex flex-col items-center justify-center transition-transform duration-300 hover:scale-105"
-                          title="Dribbble"
-                          id="hyperlink_dribbble"
-                        >
-                          {/* SVG for Dribbble */}
-                          <svg className="w-16 h-16 text-[#ea4c89] fill-current" viewBox="0 0 24 24">
-                            <path d="M12 24C5.385 24 0 18.615 0 12S5.385 0 12 0s12 5.385 12 12-5.385 12-12 12zm10.12-10.64a9.692 9.692 0 0 0-3.32-.61 14.887 14.887 0 0 0-2.18.17 19.476 19.476 0 0 1 3.5 5.56 10.024 10.024 0 0 0 2-5.12zm-3.303 6.096a17.65 17.65 0 0 0-3.23-5.152 14.77 14.77 0 0 1-5.19 2.043 9.945 9.945 0 0 0 6.666 3.109l1.754-.001zm-15.35-6.696a12.186 12.186 0 0 1 5.4-1.28c.453 0 .898.026 1.336.077a16.035 16.035 0 0 0-2.45-4.45 9.92 9.92 0 0 0-4.286 5.653zm7.042-7.067c1.066 1.487 1.954 3.1 2.628 4.795a12.83 12.83 0 0 1 4.542-1.956 9.896 9.896 0 0 0-7.17-2.839zm8.563 4.238a14.717 14.717 0 0 0-4.14 1.764c.2.476.38.962.534 1.458a13.14 13.14 0 0 1 3.843.434 9.947 9.947 0 0 0-.237-3.656zm-17.202 5.069a10.038 10.038 0 0 0 4.14 7.21l.363-.787c.882-1.91 2.115-3.633 3.632-5.076a14.39 14.39 0 0 0-1.424-.094 13.91 13.91 0 0 0-6.711 1.747z"/>
-                          </svg>
-                          <span className="text-xs font-mono tracking-wider font-semibold text-neutral-500 mt-2">
-                            Dribbble
-                          </span>
+                          <img 
+                            src="https://upload.wikimedia.org/wikipedia/commons/0/08/Pinterest-logo.png"
+                            alt="Pinterest"
+                            className="w-[120px] h-auto object-contain select-none"
+                            referrerPolicy="no-referrer"
+                          />
                         </a>
 
                       </div>
@@ -695,15 +717,14 @@ export default function App() {
                         </ul>
                         <p className="pt-2.5 text-xs text-neutral-400 italic">
                           Not sure what these terms mean?{' '}
-                          <button 
-                            onClick={() => {
-                              setActiveTab('Resources');
-                              triggerToast('Navigated to Resources definitions...');
-                            }} 
-                            className="text-neutral-600 hover:text-black underline font-semibold transition-colors cursor-pointer border-none bg-transparent p-0"
+                          <a 
+                            href="/cheatsheet.html" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-neutral-600 hover:text-black underline font-semibold transition-colors cursor-pointer"
                           >
-                            See the Resources page.
-                          </button>
+                            See Layout Cheat Sheet.
+                          </a>
                         </p>
                       </div>
 
@@ -712,53 +733,20 @@ export default function App() {
                     {/* COLUMN 2: GETTING YOUR IMAGE & OPTION A */}
                     <div className="flex flex-col text-left group">
                       
-                      {/* Grey Rounded Box Container */}
-                      <div className="bg-[#f2f2f5] rounded-[24px] p-6 pb-5 h-[230px] flex flex-col justify-between border border-neutral-200/40 relative overflow-hidden transition-all duration-300 hover:shadow-sm cursor-pointer mb-5">
-                        
-                        {/* Artwork: Twisted loop style ribbon */}
-                        <div className="absolute top-0 inset-x-0 h-[140px] flex items-center justify-center overflow-hidden">
-                          <svg viewBox="0 0 200 120" className="w-[180px] h-[110px] transform hover:scale-105 transition-transform duration-700 select-none">
-                            <defs>
-                              <linearGradient id="loopGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.85"/>
-                                <stop offset="50%" stopColor="#ec4899" stopOpacity="0.8"/>
-                                <stop offset="100%" stopColor="#a855f7" stopOpacity="0.9"/>
-                              </linearGradient>
-                              <linearGradient id="loopGrad2" x1="100%" y1="100%" x2="0%" y2="0%">
-                                <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.75"/>
-                                <stop offset="55%" stopColor="#d946ef" stopOpacity="0.8"/>
-                                <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.9"/>
-                              </linearGradient>
-                            </defs>
-                            <path 
-                              d="M 50,70 C 65,30 115,30 130,70 C 145,30 155,30 160,50" 
-                              fill="none" 
-                              stroke="url(#loopGrad1)" 
-                              strokeWidth="15" 
-                              strokeLinecap="round"
-                              opacity="0.9"
-                            />
-                            <path 
-                              d="M 40,60 C 55,20 105,80 140,50 C 160,30 150,70 160,60" 
-                              fill="none" 
-                              stroke="url(#loopGrad2)" 
-                              strokeWidth="11" 
-                              strokeLinecap="round"
-                              opacity="0.85"
-                            />
-                          </svg>
-                        </div>
-
-                        {/* Title & Arrow at footer of rounded grey card */}
-                        <div className="flex items-center justify-between mt-auto w-full pt-4 border-t border-neutral-300/35 z-10">
-                          <h3 className="text-[17px] font-semibold tracking-tight text-neutral-900 group-hover:text-black transition-colors font-display">
-                            Screenshots
-                          </h3>
-                          <span className="text-xl text-neutral-400 group-hover:text-black group-hover:translate-x-1.5 transition-all duration-300 font-mono select-none">
-                            →
-                          </span>
-                        </div>
-                      </div>
+                      {/* Grey Rounded Box Container with full-size clickable image linking to Pinterest */}
+                      <a 
+                        href="https://pt.pinterest.com/pin/70228075435570408/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block bg-[#f2f2f5] rounded-[24px] overflow-hidden border border-neutral-200/40 relative h-[230px] transition-all duration-300 hover:shadow-sm cursor-pointer mb-5"
+                      >
+                        <img 
+                          src="https://i.pinimg.com/webp87/1200x/e7/8b/a1/e78ba10e525de292567122689512bf96.webp"
+                          alt="Screenshot Reference"
+                          className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700 select-none"
+                          referrerPolicy="no-referrer"
+                        />
+                      </a>
 
                       {/* Descriptive Paragraph below card */}
                       <div className="text-[#52525b] text-xs sm:text-[13.5px] leading-relaxed">
@@ -816,17 +804,20 @@ export default function App() {
 
                     </div>
 
-                    {/* RIGHT HALF SCREEN: Left completely empty and clean, similar to Home */}
-                    <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="relative w-full max-w-xs aspect-square rounded-2xl border border-dashed border-neutral-150 flex flex-col items-center justify-center p-6 text-center opacity-60">
-                          <Video className="w-6 h-6 text-neutral-300 mb-2" />
-                          <span className="text-[11px] font-mono text-neutral-400 uppercase tracking-widest block mb-1">
-                            Motion Canvas
-                          </span>
-                          <span className="text-[10px] text-neutral-500">
-                            Create fluid motion with video-driven interactions
-                          </span>
+                    {/* RIGHT HALF SCREEN: High-fidelity cursor-driven parallax video player replacing 'Motion canvas' button */}
+                    <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative overflow-hidden flex-1">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div 
+                          className="relative w-full max-w-md aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-neutral-200/50 bg-[#0c0c10]"
+                          style={{
+                            transform: `translate(${mousePos.x}px, ${mousePos.y}px) scale(1.05)`,
+                            transition: 'transform 0.1s ease-out'
+                          }}
+                        >
+                          <VideoScrubber
+                            src="https://d8j0ntlcm91z4.cloudfront.net/user_39hjpHRtdbwGsUr2vJ8EKY4rkvE/hf_20260611_121656_00824bdc-ec1a-4431-bb15-c83b19c83d52.mp4"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </div>
                     </div>
@@ -1035,70 +1026,54 @@ export default function App() {
         if (activeTab === 'Production') {
           return (
             <>
-              {/* SECTION 1: PRODUCTION ABOVE THE FOLD - 100vh with white bg color scheme */}
-              <section className="w-full h-screen min-h-screen flex flex-col justify-between relative border-b border-neutral-100 bg-white">
-                {renderHeader(false)}
+              {/* SECTION 1: PRODUCTION ABOVE THE FOLD - bg-black with white typography */}
+              <section className="w-full h-screen min-h-screen flex flex-col justify-between relative bg-black text-white">
+                {renderHeader(true)}
 
                 {/* Hero Main Body */}
                 <div className="flex-1 w-full max-w-7xl mx-auto px-6 md:px-16 lg:px-24 flex flex-col justify-center">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12 w-full items-center">
                     
-                    {/* LEFT HALF */}
-                    <div className="flex flex-col items-start text-left z-20 max-w-lg">
+                    {/* LEFT HALF - Removing the background box card & padding, directly integrating flat layout */}
+                    <div className="flex flex-col items-start text-left z-20 max-w-xl text-white">
                       <span className="font-sans font-semibold tracking-[0.18em] text-neutral-400 text-[10px] md:text-xs uppercase mb-3.5 block">
                         PRODUCTION ORCHESTRATION
                       </span>
 
-                      <h1 className="font-display font-medium text-[40px] sm:text-[52px] md:text-[58px] lg:text-[68px] leading-[1.06] tracking-[-0.03em] text-neutral-900 mb-8">
+                      <h1 className="font-display font-medium text-[36px] sm:text-[44px] md:text-[48px] lg:text-[52px] leading-[1.08] tracking-[-0.03em] text-white mb-6">
                         Build it in Google AI Studio. Faster than you think.
                       </h1>
 
-                      <p className="text-neutral-500 text-sm max-w-md leading-relaxed font-sans mb-8">
-                        Go to <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-neutral-900 underline hover:text-neutral-700">aistudio.google.com</a> and click <span className="font-semibold text-neutral-900">Build</span> to configure custom visual experiences in an instant.
+                      <p className="text-neutral-300 text-sm max-w-md leading-relaxed font-sans mb-7">
+                        Go to <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-white underline hover:text-neutral-200">aistudio.google.com</a> and click <span className="font-semibold text-white">Build</span> to configure custom visual experiences in an instant.
                       </p>
 
                       <a
                         href="https://aistudio.google.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-8 py-3 bg-neutral-950 hover:bg-neutral-800 active:scale-95 text-white text-xs font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-2"
+                        className="px-8 py-3 bg-white hover:bg-neutral-100 active:scale-95 text-neutral-950 text-xs font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-2"
                         id="btn-goto-aistudio"
                       >
-                        <span>Go to aistudio.google.com</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span className="text-neutral-950">Go to aistudio.google.com</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-neutral-950" />
                       </a>
                     </div>
 
-                    {/* RIGHT HALF */}
-                    <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative">
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="relative w-full max-w-sm aspect-[4/3] rounded-2xl bg-[#fcfcfd] border border-neutral-200 p-6 flex flex-col justify-between shadow-xs">
-                          
-                          <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
-                              <span className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
-                              <span className="w-2 h-2 rounded-full bg-[#27c93f]" />
-                            </div>
-                            <span className="text-[9px] font-mono tracking-widest text-neutral-400 uppercase">
-                              AI Studio Workspace
-                            </span>
-                          </div>
-                          
-                          <div className="flex-1 py-6 flex flex-col justify-center gap-3">
-                            <div className="h-2 bg-neutral-200 rounded-full w-2/3" />
-                            <div className="h-2 bg-neutral-200 rounded-full w-4/5" />
-                            <div className="h-2 bg-neutral-100 rounded-full w-1/3" />
-                          </div>
-
-                          <div className="bg-white rounded-xl p-3 border border-neutral-150 flex items-center justify-between gap-3">
-                            <span className="text-[10px] font-mono text-neutral-500 whitespace-nowrap overflow-hidden text-ellipsis max-w-[180px]">
-                              "Build me a hero section..."
-                            </span>
-                            <span className="px-2 py-1 bg-neutral-905 text-[8.5px] text-white font-semibold rounded-md font-sans">
-                              Prompt
-                            </span>
-                          </div>
+                    {/* RIGHT HALF - High-fidelity video block with cursor-driven interactive scrubbing */}
+                    <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative overflow-hidden flex-1">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div 
+                          className="relative w-full h-[60vh] max-h-[550px] rounded-3xl overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.45)] border border-neutral-200/40 bg-[#0c0c10]"
+                          style={{
+                            transform: `translate(${mousePos.x}px, ${mousePos.y}px) scale(1.05)`,
+                            transition: 'transform 0.1s ease-out'
+                          }}
+                        >
+                          <VideoScrubber
+                            src="https://cdn.midjourney.com/video/b9cbe0f6-7646-40e3-a5ba-40ceb8a64661/0.mp4"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </div>
                     </div>
@@ -1108,211 +1083,230 @@ export default function App() {
 
                 {/* Subtle Scroll Down cue */}
                 <div className="py-6 z-20 relative flex flex-col items-center justify-center pointer-events-none select-none">
-                  <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase animate-bounce mb-1">
+                  <span className="text-[10px] font-mono tracking-widest text-[#71717a] uppercase animate-bounce mb-1">
                     SCROLL DOWN
                   </span>
-                  <div className="w-[1px] h-6 bg-neutral-200" />
+                  <div className="w-[1px] h-6 bg-neutral-800" />
                 </div>
               </section>
 
-              {/* SECTION 2: PRODUCTION BUILD SEQUENCE BELOW THE FOLD */}
-              <section className="w-full min-h-screen py-24 sm:py-32 flex flex-col justify-center bg-[#fafafa] text-neutral-900 relative border-t border-neutral-100 px-6 md:px-16 lg:px-24">
+              {/* SECTION 2: THE SEQUENCE STEP 1 & 2 - bg-[#f7f6f2] (warm off-white / sand) */}
+              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#f7f6f2] text-neutral-900 relative px-6 md:px-16 lg:px-24">
                 <div className="w-full max-w-7xl mx-auto">
                   
                   {/* Small Header */}
                   <div className="mb-16 text-left">
-                    <span className="text-[10px] font-mono tracking-[0.2em] text-neutral-400 uppercase block mb-2.5">
-                      STEP-BY-STEP DESIGN
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#71717a] uppercase block mb-2.5">
+                      STEP-BY-STEP DESIGN • PHASE I
                     </span>
                     <h2 className="font-display font-medium text-3xl sm:text-4xl md:text-5xl tracking-tight text-neutral-950">
-                      The Sequence
+                      The Sequence: Inception
                     </h2>
+                    <p className="text-neutral-500 text-xs sm:text-sm mt-3 max-w-md">
+                      Initiating the workspace, uploading base assets, and projecting cinematic layers.
+                    </p>
                   </div>
 
-                  {/* Vertical Flow of the sequence stages */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                     
-                    {/* Left Column - Detailed list/timeline of instructions */}
-                    <div className="lg:col-span-7 space-y-12">
+                    {/* Step 1 - Olive Husk background */}
+                    <div className="bg-[#483E25] text-white rounded-2xl p-6 sm:p-8 border border-[#5a4d2e] shadow-md space-y-4 relative">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-mono font-bold text-neutral-300">01</span>
+                        <h3 className="text-base font-semibold text-white">Upload Reference & Base Layout</h3>
+                      </div>
+                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                        Upload your reference screenshots. Add the nav bar, hero layout, and any elements you captured earlier. Prompt:
+                      </p>
                       
-                      {/* Step 1 */}
-                      <div className="border-l-2 border-neutral-200 pl-6 space-y-4 text-left relative group">
-                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-neutral-300 group-hover:bg-neutral-900 transition-colors" />
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-mono font-bold text-neutral-400">01</span>
-                          <h3 className="text-base font-semibold text-neutral-900">Upload Reference & Base Layout</h3>
-                        </div>
-                        <p className="text-[13px] text-[#52525b] leading-relaxed">
-                          Upload your reference screenshots. Add the nav bar, hero layout, and any elements you captured earlier. Prompt:
-                        </p>
-                        
-                        <div className="bg-white rounded-xl p-4 border border-neutral-200/50 text-[12px] font-mono text-neutral-800 relative leading-relaxed group/copy shadow-xs">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText('Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout.');
-                              triggerToast('Copied Prompt 1');
-                            }}
-                            className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer shadow-xs"
-                          >
-                            Copy
-                          </button>
-                          "Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout."
-                        </div>
-
-                        <div className="bg-neutral-100/60 rounded-xl p-4 border border-neutral-200/40 text-xs text-neutral-600 leading-relaxed shadow-3xs">
-                          <span className="font-bold text-neutral-800 block mb-1">PRO TIP — THE 100VH RULE:</span>
-                          Tell the AI to make every section <span className="font-mono text-neutral-900 font-semibold bg-neutral-200/30 px-1.5 py-0.5 rounded">100VH</span>. It gives the content breathing room.
-                        </div>
+                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout.');
+                            triggerToast('Copied Prompt 1');
+                          }}
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                        >
+                          Copy
+                        </button>
+                        "Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout."
                       </div>
 
-                      {/* Step 2 */}
-                      <div className="border-l-2 border-neutral-200 pl-6 space-y-4 text-left relative group">
-                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-neutral-300 group-hover:bg-neutral-900 transition-colors" />
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-mono font-bold text-neutral-400">02</span>
-                          <h3 className="text-base font-semibold text-neutral-900">Add Video Background</h3>
-                        </div>
-                        <p className="text-[13px] text-[#52525b] leading-relaxed">
-                          Add your video background. Right-click your video and open it in a new tab. Copy that URL. In AI Studio, prompt:
-                        </p>
-
-                        <div className="bg-white rounded-xl p-4 border border-neutral-200/50 text-[12px] font-mono text-neutral-800 relative leading-relaxed group/copy shadow-xs">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText('Replace the background with this video: [URL].');
-                              triggerToast('Copied Prompt 2');
-                            }}
-                            className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer shadow-xs"
-                          >
-                            Copy
-                          </button>
-                          "Replace the background with this video: [URL]."
-                        </div>
-
-                        <p className="text-[12.5px] text-[#52525b] leading-relaxed">
-                          Then specify the behaviour — loop, play once, or scroll-controlled.
-                        </p>
-
-                        <div className="bg-neutral-100/60 rounded-xl p-4 border border-neutral-200/40 text-xs text-neutral-600 leading-relaxed shadow-3xs">
-                          <span className="font-bold text-neutral-800 block mb-1">SET EXPLICIT BEHAVIOR:</span>
-                          The AI will default to looping with a dark overlay unless told otherwise. Be specific about which of the three techniques you want.
-                        </div>
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 text-xs text-neutral-350 leading-relaxed">
+                        <span className="font-bold text-white block mb-0.5">PRO TIP — THE 100VH RULE:</span>
+                        Tell the AI to make every section <span className="font-mono text-white font-semibold bg-white/10 px-1.5 py-0.5 rounded">100VH</span>. It gives the content breathing room.
                       </div>
-
-                      {/* Step 3 */}
-                      <div className="border-l-2 border-neutral-200 pl-6 space-y-4 text-left relative group">
-                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-neutral-300 group-hover:bg-neutral-900 transition-colors" />
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-mono font-bold text-neutral-400">03</span>
-                          <h3 className="text-base font-semibold text-neutral-900">Check Mobile</h3>
-                        </div>
-                        <p className="text-[13px] text-[#52525b] leading-relaxed">
-                          Resize your browser to 390px wide. If anything breaks, prompt:
-                        </p>
-
-                        <div className="bg-white rounded-xl p-4 border border-neutral-200/50 text-[12px] font-mono text-neutral-800 relative leading-relaxed group/copy shadow-xs">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText('Optimise for mobile. Stack sections vertically. Make the headline font size 32px minimum. Ensure the CTA button is full width and thumb-reachable.');
-                              triggerToast('Copied Prompt 3');
-                            }}
-                            className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer shadow-xs"
-                          >
-                            Copy
-                          </button>
-                          "Optimise for mobile. Stack sections vertically. Make the headline font size 32px minimum. Ensure the CTA button is full width and thumb-reachable."
-                        </div>
-                      </div>
-
-                      {/* Step 4 */}
-                      <div className="border-l-2 border-neutral-200 pl-6 space-y-4 text-left relative group">
-                        <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-neutral-300 group-hover:bg-neutral-900 transition-colors" />
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-mono font-bold text-neutral-400">04</span>
-                          <h3 className="text-base font-semibold text-neutral-900">Refine Typography</h3>
-                        </div>
-                        <p className="text-[13px] text-[#52525b] leading-relaxed">
-                          AI defaults to Inter, Roboto, or Arial. These signal "generated." Download Helvetica Neue and prompt:
-                        </p>
-
-                        <div className="bg-white rounded-xl p-4 border border-neutral-200/50 text-[12px] font-mono text-neutral-800 relative leading-relaxed group/copy shadow-xs">
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText('Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts.');
-                              triggerToast('Copied Prompt 4');
-                            }}
-                            className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer shadow-xs"
-                          >
-                            Copy
-                          </button>
-                          "Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts."
-                        </div>
-
-                        <p className="text-[12.5px] text-[#52525b] leading-relaxed">
-                          Or find a font you like on <a href="https://fontshare.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-neutral-850 hover:text-black underline">fontshare.com</a>, 100% free & higher quality than most Google Fonts.
-                        </p>
-                      </div>
-
                     </div>
 
-                    {/* Right Column - Checklist "Know when to stop" */}
-                    <div className="lg:col-span-5 space-y-8 text-left">
-                      
-                      <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-neutral-200/60 shadow-sm relative overflow-hidden">
-                        
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-neutral-50 rounded-bl-full pointer-events-none flex items-center justify-center">
-                          <Check className="w-8 h-8 text-neutral-300 transform translate-x-3 -translate-y-3" />
-                        </div>
+                    {/* Step 2 - Olive Husk background */}
+                    <div className="bg-[#483E25] text-white rounded-2xl p-6 sm:p-8 border border-[#5a4d2e] shadow-md space-y-4 relative">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-mono font-bold text-neutral-300">02</span>
+                        <h3 className="text-base font-semibold text-white">Add Video Background</h3>
+                      </div>
+                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                        Add your video background. Right-click your video and open it in a new tab. Copy that URL. In AI Studio, prompt:
+                      </p>
 
-                        <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase block mb-1">
-                          CRITERIA MATRIX
-                        </span>
-                        
-                        <h3 className="text-lg font-bold text-neutral-950 mb-5">
-                          Know when to stop.
-                        </h3>
-
-                        <p className="text-[12.5px] text-neutral-500 leading-relaxed mb-6">
-                          Ask yourself four questions before prompting again:
-                        </p>
-
-                        {/* Checklist items */}
-                        <div className="space-y-4">
-                          {[
-                            { q: "Is the headline clear?", desc: "Perfect syntax, high weight and legibility." },
-                            { q: "Is the CTA visible without scrolling?", desc: "Sits comfortably above the fold." },
-                            { q: "Does it work on mobile?", desc: "Stops overlaps and scales typography down correctly." },
-                            { q: "Does the background enhance rather than distract?", desc: "Harmonious balance without overpowering overlays." }
-                          ].map((item, index) => (
-                            <div key={index} className="flex gap-3 items-start border-b border-neutral-100 pb-3">
-                              <span className="w-5 h-5 rounded-full border border-emerald-500 bg-emerald-50/50 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-emerald-600 mt-0.5 select-none">
-                                ✓
-                              </span>
-                              <div>
-                                <h4 className="text-[13.5px] font-semibold text-neutral-900">{item.q}</h4>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <p className="text-[12.5px] text-neutral-500 leading-relaxed mt-6">
-                          If yes to all <span className="font-semibold text-neutral-800">four</span> — you are done.
-                        </p>
-
-                        <div className="mt-8 pt-6 border-t border-neutral-150 flex items-center justify-between text-[10.5px] font-mono text-neutral-400 select-none">
-                          <span>blueprint verified</span>
-                          <span className="text-emerald-500 font-semibold flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            OPTIMIZED
-                          </span>
-                        </div>
-
+                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('Replace the background with this video: [URL].');
+                            triggerToast('Copied Prompt 2');
+                          }}
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                        >
+                          Copy
+                        </button>
+                        "Replace the background with this video: [URL]."
                       </div>
 
+                      <p className="text-[12.5px] text-neutral-200 leading-relaxed">
+                        Then specify the behaviour — loop, play once, or scroll-controlled.
+                      </p>
+
+                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 text-xs text-neutral-350 leading-relaxed">
+                        <span className="font-bold text-white block mb-0.5">SET EXPLICIT BEHAVIOR:</span>
+                        The AI will default to looping with a dark overlay unless told otherwise. Be specific about which of the three techniques you want.
+                      </div>
                     </div>
 
                   </div>
 
+                </div>
+              </section>
+
+              {/* SECTION 3: THE SEQUENCE STEP 3 & 4 - bg-[#f1f3f6] (cool off-white / mist) */}
+              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#f1f3f6] text-neutral-900 relative px-6 md:px-16 lg:px-24">
+                <div className="w-full max-w-7xl mx-auto">
+                  
+                  {/* Small Header */}
+                  <div className="mb-16 text-left">
+                    <span className="text-[10px] font-mono tracking-[0.2em] text-[#71717a] uppercase block mb-2.5">
+                      STEP-BY-STEP DESIGN • PHASE II
+                    </span>
+                    <h2 className="font-display font-medium text-3xl sm:text-4xl md:text-5xl tracking-tight text-neutral-950">
+                      The Sequence: Refinement
+                    </h2>
+                    <p className="text-neutral-500 text-xs sm:text-sm mt-3 max-w-md font-sans">
+                      Correcting responsive layouts, checking breakpoint shifts, and polishing display typography.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                    
+                    {/* Step 3 - Ocean Dust background */}
+                    <div className="bg-[#516985] text-white rounded-2xl p-6 sm:p-8 border border-[#5d7796] shadow-md space-y-4 relative">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-mono font-bold text-neutral-300">03</span>
+                        <h3 className="text-base font-semibold text-white">Check Mobile</h3>
+                      </div>
+                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                        Resize your browser to 390px wide. If anything breaks, prompt:
+                      </p>
+
+                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('Optimise for mobile. Stack sections vertically. Make the headline font size 32px minimum. Ensure the CTA button is full width and thumb-reachable.');
+                            triggerToast('Copied Prompt 3');
+                          }}
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                        >
+                          Copy
+                        </button>
+                        "Optimise for mobile. Stack sections vertically. Make the headline font size 32px minimum. Ensure the CTA button is full width and thumb-reachable."
+                      </div>
+                    </div>
+
+                    {/* Step 4 - Ocean Dust background */}
+                    <div className="bg-[#516985] text-white rounded-2xl p-6 sm:p-8 border border-[#5d7796] shadow-md space-y-4 relative">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-mono font-bold text-neutral-300">04</span>
+                        <h3 className="text-base font-semibold text-white">Refine Typography</h3>
+                      </div>
+                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                        AI defaults to Inter, Roboto, or Arial. These signal "generated." Download Helvetica Neue and prompt:
+                      </p>
+
+                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts.');
+                            triggerToast('Copied Prompt 4');
+                          }}
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                        >
+                          Copy
+                        </button>
+                        "Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts."
+                      </div>
+
+                      <p className="text-[12.5px] text-neutral-200 leading-relaxed">
+                        Or find a font you like on <a href="https://fontshare.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-white hover:text-neutral-100 underline">fontshare.com</a>, 100% free & higher quality than most Google Fonts.
+                      </p>
+                    </div>
+
+                  </div>
+
+                </div>
+              </section>
+
+              {/* SECTION 4: THE MATRIX CRITERIA - bg-[#fafbf9] (botanical eggshell) with Meadow Spiral container */}
+              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#fafbf9] text-neutral-900 relative px-6 md:px-16 lg:px-24">
+                <div className="w-full max-w-7xl mx-auto flex items-center justify-center">
+                  
+                  <div className="w-full max-w-3xl bg-[#3E4F2F] text-white rounded-[32px] p-8 sm:p-12 border border-[#4d623b] shadow-xl relative overflow-hidden backdrop-blur-xs">
+                    
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none flex items-center justify-center">
+                      <Check className="w-10 h-10 text-white/20 transform translate-x-4 -translate-y-4" />
+                    </div>
+
+                    <span className="text-[10px] font-mono tracking-widest text-[#d1fae5] uppercase block mb-2 font-semibold">
+                      CRITERIA MATRIX
+                    </span>
+                    
+                    <h3 className="text-2xl sm:text-3xl font-display font-semibold text-white mb-6">
+                      Know when to stop.
+                    </h3>
+
+                    <p className="text-sm text-emerald-100 leading-relaxed mb-8">
+                      Ask yourself four questions before prompting again:
+                    </p>
+
+                    {/* Checklist items */}
+                    <div className="space-y-6">
+                      {[
+                        { q: "Is the headline clear?", desc: "Perfect syntax, high weight and legibility." },
+                        { q: "Is the CTA visible without scrolling?", desc: "Sits comfortably above the fold." },
+                        { q: "Does it work on mobile?", desc: "Stops overlaps and scales typography down correctly." },
+                        { q: "Does the background enhance rather than distract?", desc: "Harmonious balance without overpowering overlays." }
+                      ].map((item, index) => (
+                        <div key={index} className="flex gap-4 items-start border-b border-white/10 pb-4 last:border-0 last:pb-0">
+                          <span className="w-6 h-6 rounded-full border border-emerald-400 bg-emerald-500/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-emerald-300 mt-0.5 select-none">
+                            ✓
+                          </span>
+                          <div>
+                            <h4 className="text-base font-semibold text-white">{item.q}</h4>
+                            <p className="text-xs text-neutral-200 mt-0.5">{item.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-sm text-emerald-100 leading-relaxed mt-8">
+                      If yes to all <span className="font-semibold text-white">four</span> — you are done.
+                    </p>
+
+                    <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-[10.5px] font-mono text-neutral-300 select-none">
+                      <span>blueprint verified</span>
+                      <span className="text-emerald-300 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                        OPTIMIZED
+                      </span>
+                    </div>
+
+                  </div>
                 </div>
               </section>
             </>
@@ -1337,54 +1331,104 @@ export default function App() {
                     </h1>
                   </div>
 
+                  {/* 3D Cylinder Carousel matching original visual guidelines */}
+                  <a 
+                    href="https://motionsites.ai" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="block relative w-full h-[60vh] min-h-[420px] bg-black rounded-3xl overflow-hidden border border-neutral-900 hover:border-neutral-700 transition-colors shadow-2xl z-20 mb-16 cursor-pointer"
+                  >
+                    <CardCarousel3D />
+                  </a>
+
                   {/* High fidelity layout featuring carefully separated resources inside cards */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     
-                    {/* LEFT PANEL: MAIN PREMIUM HIGHLIGHTED CURATOR RESOURCES */}
+                    {/* LEFT PANEL: COMBINED MAIN PREMIUM CURATORS & CREATORS */}
                     <div className="lg:col-span-5 space-y-6">
-                      
-                      {/* Motionsites Card */}
-                      <a 
-                        href="https://motionsites.ai/sections" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="block bg-neutral-950 text-white rounded-2xl p-8 hover:bg-neutral-900 hover:scale-[1.01] transition-all duration-200 text-left relative overflow-hidden group shadow-md"
-                        id="link-motionsites"
-                      >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none transition-all group-hover:scale-110" />
-                        <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase mb-4 block">
-                          FEATURED PLATFORM
+                      <div className="mb-2">
+                        <span className="text-[10px] font-mono tracking-widest text-[#52525b] uppercase font-semibold">
+                          CREATOR SPOTLIGHTS
                         </span>
-                        <h2 className="text-2xl font-display font-medium mb-3 tracking-tight">motionsites.ai/sections</h2>
-                        <p className="text-xs text-neutral-300 leading-relaxed mb-6 max-w-sm">
-                          Handpicked showcase cataloging motion-rich layouts, full-view transitions, and beautiful fluid scroll dynamics.
-                        </p>
-                        <div className="flex items-center gap-1.5 text-xs text-white font-medium">
-                          <span>Visit Website</span>
-                          <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </a>
+                      </div>
 
                       {/* Viktor Oddy Card */}
-                      <a 
-                        href="https://x.com/viktoroddy" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="block bg-neutral-50 border border-neutral-200 text-neutral-900 rounded-2xl p-8 hover:bg-neutral-100/60 hover:border-neutral-300 hover:scale-[1.01] transition-all duration-200 text-left relative overflow-hidden group"
-                        id="link-viktoroddy"
+                      <div 
+                        className="bg-neutral-950 text-white rounded-2xl p-7 border border-neutral-850 relative overflow-hidden shadow-sm flex flex-col justify-between"
+                        id="creative-viktoroddy"
                       >
-                        <span className="text-[10px] font-mono tracking-widest text-[#52525b] uppercase mb-4 block">
-                          X CREATOR CORNER
-                        </span>
-                        <h2 className="text-xl font-display font-medium mb-3 tracking-tight">Viktor Oddy's X Channel</h2>
-                        <p className="text-xs text-neutral-500 leading-relaxed mb-6 max-w-sm">
-                          Premium tips, layout reviews, micro-animation breakdowns, and tactical aesthetic frameworks for modern web designers.
-                        </p>
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900">
-                          <span>x.com/viktoroddy</span>
-                          <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none" />
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-display font-medium text-white text-sm">
+                              VO
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-display font-medium text-white leading-tight">Viktor Oddy</h2>
+                              <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-wider">Curator & Designer</span>
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs text-neutral-300 leading-relaxed mb-6 max-w-sm">
+                            Handpicks exceptional landing pages and web animations. Renowned for detailed design reviews, micro-animation showcases, and tactical layout inspiration on X.
+                          </p>
                         </div>
-                      </a>
+
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <a 
+                            href="https://motionsites.ai/sections" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold tracking-wide text-white transition-all duration-200 flex items-center justify-center gap-1.5 group"
+                          >
+                            <span>motionsites.ai</span>
+                            <ExternalLink className="w-3 h-3 opacity-65 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                          <a 
+                            href="https://x.com/viktoroddy" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold tracking-wide text-white transition-all duration-200 flex items-center justify-center gap-1.5 group"
+                          >
+                            <span>x.com/viktoroddy</span>
+                            <ExternalLink className="w-3 h-3 opacity-65 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Bogdan Falin Card */}
+                      <div 
+                        className="bg-neutral-50 text-neutral-900 border border-neutral-200 rounded-2xl p-7 relative overflow-hidden flex flex-col justify-between"
+                        id="creative-bogdanfalin"
+                      >
+                        <div>
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-display font-medium text-sm">
+                              BF
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-display font-medium text-neutral-900 leading-tight">Bogdan Falin</h2>
+                              <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">Creative Developer</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-[#52525b] leading-relaxed mb-6 max-w-sm">
+                            Expert in crafting rich interactive web tools and layout compilations. Developer and founder of Lafys, an outstanding repository for elegant structural interfaces.
+                          </p>
+                        </div>
+
+                        <div className="flex pt-2">
+                          <a 
+                            href="https://lafys.com/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-neutral-950 text-white hover:bg-neutral-850 rounded-xl px-3.5 py-2 text-xs font-semibold tracking-wide transition-all duration-200 flex items-center justify-center gap-1.5 group"
+                          >
+                            <span>lafys.com</span>
+                            <ExternalLink className="w-3 h-3 opacity-65 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        </div>
+                      </div>
 
                     </div>
 
@@ -1564,6 +1608,30 @@ export default function App() {
 
                 </div>
               </section>
+
+              {/* SECTION 3: LAYOUT CHEAT SHEET CALL TO ACTION */}
+              <section className="w-full py-20 bg-white border-t border-neutral-150 flex flex-col items-center justify-center px-6 md:px-16 lg:px-24 text-center">
+                <div className="max-w-2xl mx-auto">
+                  <span className="text-[10px] font-mono tracking-[0.2em] text-[#d97706] uppercase block mb-3 font-semibold">
+                    VISUAL GLOSSARY REFERENCE
+                  </span>
+                  <h3 className="font-display font-medium text-3xl sm:text-4xl text-neutral-950 mb-4 tracking-tight">
+                    Website Layout Terms for Non-Designers
+                  </h3>
+                  <p className="text-[#52525b] text-xs sm:text-sm leading-relaxed mb-8 max-w-lg mx-auto">
+                    Confused by grid systems, hamburger menus, above-the-fold constraints, padding or container models? Access our custom interactive terminology visual reference sheet built in deep-space high fidelity.
+                  </p>
+                  <a 
+                    href="/cheatsheet.html" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-neutral-950 hover:bg-neutral-900 hover:scale-[1.02] active:scale-[0.98] text-white font-sans text-xs sm:text-sm px-7 py-4 rounded-full font-semibold shadow-xs transition-all duration-200 cursor-pointer"
+                  >
+                    <span>Open Interactive Cheat Sheet</span>
+                    <span className="text-lg font-mono">→</span>
+                  </a>
+                </div>
+              </section>
             </>
           );
         }
@@ -1586,11 +1654,12 @@ export default function App() {
       {/* Aesthetic Footer Area - Premium White-on-Black footer with custom owner links */}
       <footer className="w-full py-12 px-6 md:px-16 lg:px-24 flex flex-col sm:flex-row items-center justify-between gap-6 z-10 text-xs text-neutral-400 bg-neutral-950 border-t border-neutral-900">
         <div>
-          <span className="text-neutral-500">© 2026 The Indie Web. All rights reserved.</span>
+          <span className="font-mono tracking-[0.2em] text-neutral-300 font-bold text-sm uppercase">MYOSIN</span>
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-2 items-center justify-center">
           <a href="https://x.com/Shanekfarrell" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">X</a>
           <a href="https://www.linkedin.com/in/shanekevinfarrell/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">LI</a>
+          <a href="/cheatsheet.html" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors font-medium text-amber-400">Layout Cheat Sheet</a>
           <a href="https://www.skool.com/myosin-learns/welcome" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Myosin Learns</a>
         </div>
       </footer>

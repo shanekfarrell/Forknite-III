@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Layout Terms for Non-Designers — Visual Cheat Sheet</title>
+  
+  <style>
+    /* Reset and Core Variables */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    :root {
+      --bg-color: #0f0f0f;
+      --card-bg: #16161a;
+      --card-border: #2a2a32;
+      --text-color: #ffffff;
+      --text-muted: #a1a1aa;
+      --font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      
+      /* Category Colors */
+      --color-structure: #FF7A00;
+      --color-mechanics: #10B981;
+      --color-navigation: #3B82F6;
+      --color-content: #A855F7;
+      --color-responsiveness: #EC4899;
+      --color-typography: #FACE15;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      padding: 3rem 1.5rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Layout styling limit */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+    }
+    
+    /* Title portion */
+    header {
+      margin-bottom: 3.5rem;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 30%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto 2.5rem auto;
+      font-weight: 400;
+    }
+
+    /* Interactive Filters & Controls */
+    .controls-wrapper {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .search-box {
+      position: relative;
+      width: 100%;
+    }
+
+    .search-input {
+      width: 100%;
+      background-color: #0c0c0e;
+      border: 1px solid var(--card-border);
+      color: var(--text-color);
+      font-family: var(--font-family);
+      padding: 0.85rem 1.25rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Category Filter Grid */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    
+    .filter-btn {
+      background-color: #1a1a22;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-family: var(--font-family);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .filter-btn:hover {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+    
+    .filter-btn.active {
+      background-color: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+    
+    .filter-btn .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    
+    /* Legend area at top */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    
+    /* Map categories to legend indicator colors */
+    .dot-structure, .legend-structure { background-color: var(--color-structure); }
+    .dot-mechanics, .legend-mechanics { background-color: var(--color-mechanics); }
+    .dot-navigation, .legend-navigation { background-color: var(--color-navigation); }
+    .dot-content, .legend-content { background-color: var(--color-content); }
+    .dot-responsiveness, .legend-responsiveness { background-color: var(--color-responsiveness); }
+    .dot-typography, .legend-typography { background-color: var(--color-typography); }
+    
+    /* Cheat Sheet Cards Responsive Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: 1.5rem;
+      transition: all 0.35s ease-in-out;
+    }
+    
+    @media (min-width: 640px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    
+    @media (min-width: 1024px) {
+      .grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    
+    /* Card Element Details */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Hover micro-interaction lifts card */
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: #ffffff;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Categories glow borders subtly on hover */
+    .card[data-category="structure"]:hover { border-color: var(--color-structure); }
+    .card[data-category="mechanics"]:hover { border-color: var(--color-mechanics); }
+    .card[data-category="navigation"]:hover { border-color: var(--color-navigation); }
+    .card[data-category="content"]:hover { border-color: var(--color-content); }
+    .card[data-category="responsiveness"]:hover { border-color: var(--color-responsiveness); }
+    .card[data-category="typography"]:hover { border-color: var(--color-typography); }
+    
+    .card-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .category-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: var(--font-family);
+    }
+    
+    /* Category tag colors */
+    .tag-structure { color: var(--color-structure); }
+    .tag-mechanics { color: var(--color-mechanics); }
+    .tag-navigation { color: var(--color-navigation); }
+    .tag-content { color: var(--color-content); }
+    .tag-responsiveness { color: var(--color-responsiveness); }
+    .tag-typography { color: var(--color-typography); }
+    
+    .term-heading {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+    }
+    
+    .explanation {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+      flex-grow: 1;
+    }
+    
+    /* No results matches styling */
+    .no-results {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      background-color: var(--card-bg);
+      border: 1px dotted var(--card-border);
+      border-radius: 16px;
+      display: none;
+    }
+    
+    /* Back Button to main website */
+    .back-nav {
+      position: absolute;
+      top: 1.5rem;
+      left: 1.5rem;
+    }
+    
+    .back-btn {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: color 0.2s ease;
+    }
+    
+    .back-btn:hover {
+      color: #ffffff;
+    }
+    
+    footer {
+      margin-top: auto;
+      padding-top: 4rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    
+    footer a {
+      color: #ffffff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar home anchor -->
+  <div class="back-nav">
+    <a href="/" class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Return to Home
+    </a>
+  </div>
+
+  <div class="container">
+    
+    <header>
+      <h1>Website Layout Terms for Non-Designers</h1>
+      <p class="subtitle">A visual layout reference guide breaking down interface structure, design mechanics, and response behaviors into plain English.</p>
+    </header>
+
+    <!-- Legend & Categories indicator -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot legend-structure"></div>Structure</div>
+      <div class="legend-item"><div class="legend-dot legend-mechanics"></div>Layout Mechanics</div>
+      <div class="legend-item"><div class="legend-dot legend-navigation"></div>Navigation</div>
+      <div class="legend-item"><div class="legend-dot legend-content"></div>Content Blocks</div>
+      <div class="legend-item"><div class="legend-dot legend-responsiveness"></div>Responsiveness</div>
+      <div class="legend-item"><div class="legend-dot legend-typography"></div>Typography & Visual</div>
+    </div>
+
+    <!-- Interactive Search and Filters Panel -->
+    <div class="controls-wrapper">
+      <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search layouts, design terms or explanations...">
+      </div>
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all">All Terms</button>
+        <button class="filter-btn" data-filter="structure">
+          <span class="dot dot-structure"></span>Structure
+        </button>
+        <button class="filter-btn" data-filter="mechanics">
+          <span class="dot dot-mechanics"></span>Layout Mechanics
+        </button>
+        <button class="filter-btn" data-filter="navigation">
+          <span class="dot dot-navigation"></span>Navigation
+        </button>
+        <button class="filter-btn" data-filter="content">
+          <span class="dot dot-content"></span>Content Blocks
+        </button>
+        <button class="filter-btn" data-filter="responsiveness">
+          <span class="dot dot-responsiveness"></span>Responsiveness
+        </button>
+        <button class="filter-btn" data-filter="typography">
+          <span class="dot dot-typography"></span>Typography & Visual
+        </button>
+      </div>
+    </div>
+
+    <!-- Core Grid of Terms -->
+    <main class="grid" id="termsGrid">
+      
+      <!-- STRUCTURE CATEGORY -->
+      <div class="card" data-category="structure">
+        <div class="card-header">
+          <span class="category-tag tag-structure">Structure</span>
+          <h2 class="term-heading">Header</h2>
+        </div>
+        <p class="explanation">The top bar of every page. Contains logo, navigation links, and sometimes a CTA button. Stays visible as you scroll on most modern sites.</p>
+      </div>
+
+      <div class="card" data-category="structure">
+        <div class="card-header">
+          <span class="category-tag tag-structure">Structure</span>
+          <h2 class="term-heading">Footer</h2>
+        </div>
+        <p class="explanation">The bottom bar. Contains secondary links, legal text, social icons, contact info.</p>
+      </div>
+
+      <div class="card" data-category="structure">
+        <div class="card-header">
+          <span class="category-tag tag-structure">Structure</span>
+          <h2 class="term-heading">Hero</h2>
+        </div>
+        <p class="explanation">The first thing visitors see. Full-width, with a headline, subheading, and CTA. Sets the tone for the whole site.</p>
+      </div>
+
+      <div class="card" data-category="structure">
+        <div class="card-header">
+          <span class="category-tag tag-structure">Structure</span>
+          <h2 class="term-heading">Section</h2>
+        </div>
+        <p class="explanation">A self-contained content block with its own background, padding, and purpose.</p>
+      </div>
+
+      <div class="card" data-category="structure">
+        <div class="card-header">
+          <span class="category-tag tag-structure">Structure</span>
+          <h2 class="term-heading">Sidebar</h2>
+        </div>
+        <p class="explanation">A narrower column running alongside main content. Common in blogs and dashboards.</p>
+      </div>
+
+      <!-- LAYOUT MECHANICS CATEGORY -->
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Grid</h2>
+        </div>
+        <p class="explanation">Divides the page into invisible columns and rows. Most layouts use 12 columns. Elements snap to grid positions.</p>
+      </div>
+
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Flexbox</h2>
+        </div>
+        <p class="explanation">Aligns elements in a single direction — a row or a column. Controls spacing, order, and alignment between items.</p>
+      </div>
+
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Container</h2>
+        </div>
+        <p class="explanation">An invisible box that limits content width and centres it on screen. Stops text stretching uncomfortably on wide monitors.</p>
+      </div>
+
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Whitespace</h2>
+        </div>
+        <p class="explanation">Empty space with no content. Intentional, not accidental. Makes layouts feel premium and readable.</p>
+      </div>
+
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Padding</h2>
+        </div>
+        <p class="explanation">Space inside an element, between its content and its border. Like the margin inside a picture frame.</p>
+      </div>
+
+      <div class="card" data-category="mechanics">
+        <div class="card-header">
+          <span class="category-tag tag-mechanics">Layout Mechanics</span>
+          <h2 class="term-heading">Margin</h2>
+        </div>
+        <p class="explanation">Space outside an element, pushing other elements away. Like the gap between picture frames on a wall.</p>
+      </div>
+
+      <!-- NAVIGATION CATEGORY -->
+      <div class="card" data-category="navigation">
+        <div class="card-header">
+          <span class="category-tag tag-navigation">Navigation</span>
+          <h2 class="term-heading">Navbar</h2>
+        </div>
+        <p class="explanation">Horizontal bar of navigation links, usually in the header. The primary way users move around a site.</p>
+      </div>
+
+      <div class="card" data-category="navigation">
+        <div class="card-header">
+          <span class="category-tag tag-navigation">Navigation</span>
+          <h2 class="term-heading">Hamburger Menu</h2>
+        </div>
+        <p class="explanation">The ☰ icon on mobile. Tapping reveals a hidden nav menu.</p>
+      </div>
+
+      <div class="card" data-category="navigation">
+        <div class="card-header">
+          <span class="category-tag tag-navigation">Navigation</span>
+          <h2 class="term-heading">Breadcrumb</h2>
+        </div>
+        <p class="explanation">A trail showing where you are in the site hierarchy. E.g. Home › Blog › Post Title.</p>
+      </div>
+
+      <div class="card" data-category="navigation">
+        <div class="card-header">
+          <span class="category-tag tag-navigation">Navigation</span>
+          <h2 class="term-heading">Anchor Link</h2>
+        </div>
+        <p class="explanation">A link that jumps to a specific section on the same page rather than loading a new one.</p>
+      </div>
+
+      <!-- CONTENT BLOCKS CATEGORY -->
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Card</h2>
+        </div>
+        <p class="explanation">A boxed unit of content with an image, headline, short text, and a link or button. Like a physical index card.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">CTA (Call to Action)</h2>
+        </div>
+        <p class="explanation">A button or prompt telling the user what to do next. The most important element on any marketing page.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Banner</h2>
+        </div>
+        <p class="explanation">A full-width strip for announcements, alerts, or promotions. Often appears above the header.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Modal</h2>
+        </div>
+        <p class="explanation">A popup box that appears over the current page. The background goes dark. Requires user interaction before continuing.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Tooltip</h2>
+        </div>
+        <p class="explanation">A small label appearing on hover. Used to explain icons without cluttering the layout.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Carousel / Slider</h2>
+        </div>
+        <p class="explanation">Content that cycles horizontally via auto-play or arrow clicks. Common for testimonials and galleries.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Accordion</h2>
+        </div>
+        <p class="explanation">A list where clicking a heading expands it to reveal content. Used for FAQs.</p>
+      </div>
+
+      <div class="card" data-category="content">
+        <div class="card-header">
+          <span class="category-tag tag-content">Content Blocks</span>
+          <h2 class="term-heading">Tab</h2>
+        </div>
+        <p class="explanation">Switches between content panels horizontally. Like browser tabs within a page section.</p>
+      </div>
+
+      <!-- RESPONSIVENESS CATEGORY -->
+      <div class="card" data-category="responsiveness">
+        <div class="card-header">
+          <span class="category-tag tag-responsiveness">Responsiveness</span>
+          <h2 class="term-heading">Breakpoint</h2>
+        </div>
+        <p class="explanation">A screen width where the layout changes. Common breakpoints: mobile (480px), tablet (768px), desktop (1024px+).</p>
+      </div>
+
+      <div class="card" data-category="responsiveness">
+        <div class="card-header">
+          <span class="category-tag tag-responsiveness">Responsiveness</span>
+          <h2 class="term-heading">Mobile-first</h2>
+        </div>
+        <p class="explanation">Designing for the smallest screen first, then scaling up.</p>
+      </div>
+
+      <div class="card" data-category="responsiveness">
+        <div class="card-header">
+          <span class="category-tag tag-responsiveness">Responsiveness</span>
+          <h2 class="term-heading">Viewport</h2>
+        </div>
+        <p class="explanation">The visible area of the browser window on any given device.</p>
+      </div>
+
+      <div class="card" data-category="responsiveness">
+        <div class="card-header">
+          <span class="category-tag tag-responsiveness">Responsiveness</span>
+          <h2 class="term-heading">Responsive</h2>
+        </div>
+        <p class="explanation">A layout that automatically adapts to any screen size.</p>
+      </div>
+
+      <!-- TYPOGRAPHY & VISUAL CATEGORY -->
+      <div class="card" data-category="typography">
+        <div class="card-header">
+          <span class="category-tag tag-typography">Typography & Visual</span>
+          <h2 class="term-heading">Hierarchy</h2>
+        </div>
+        <p class="explanation">The visual order of importance. Large headline → subheading → body text. Guides the eye.</p>
+      </div>
+
+      <div class="card" data-category="typography">
+        <div class="card-header">
+          <span class="category-tag tag-typography">Typography & Visual</span>
+          <h2 class="term-heading">Above the Fold</h2>
+        </div>
+        <p class="explanation">Everything visible before you scroll. Prime real estate. The term comes from newspapers.</p>
+      </div>
+
+      <div class="card" data-category="typography">
+        <div class="card-header">
+          <span class="category-tag tag-typography">Typography & Visual</span>
+          <h2 class="term-heading">Z-index</h2>
+        </div>
+        <p class="explanation">Controls which elements stack on top of others. A modal needs a high z-index to appear above everything else.</p>
+      </div>
+
+      <!-- Match status placeholder for empty values -->
+      <div id="noResults" class="no-results">
+        No matched layout terms found for "<span id="searchTermsQuery"></span>" in this filter view.
+      </div>
+      
+    </main>
+
+    <footer>
+      <p>Created with focus on high fidelity design. <span style="letter-spacing: 0.15em; font-weight:700;">MYOSIN</span></p>
+    </footer>
+
+  </div>
+
+  <script>
+    // Filtering and Searching Logic
+    const searchInput = document.getElementById('searchInput');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const cards = document.querySelectorAll('.card');
+    const termsGrid = document.getElementById('termsGrid');
+    const noResults = document.getElementById('noResults');
+    const searchQuerySpan = document.getElementById('searchTermsQuery');
+
+    let activeFilter = 'all';
+    let searchQuery = '';
+
+    function updateView() {
+      let matchedCount = 0;
+      
+      cards.forEach(card => {
+        const category = card.getAttribute('data-category');
+        const termHeading = card.querySelector('.term-heading').textContent.toLowerCase();
+        const explanation = card.querySelector('.explanation').textContent.toLowerCase();
+        
+        const matchesFilter = activeFilter === 'all' || category === activeFilter;
+        const matchesSearch = termHeading.includes(searchQuery) || explanation.includes(searchQuery);
+        
+        if (matchesFilter && matchesSearch) {
+          card.style.display = 'flex';
+          matchedCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+      
+      if (matchedCount === 0) {
+        noResults.style.display = 'block';
+        searchQuerySpan.textContent = searchInput.value;
+      } else {
+        noResults.style.display = 'none';
+      }
+    }
+
+    // Category button selection toggle
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.getAttribute('data-filter');
+        updateView();
+      });
+    });
+
+    // Native search typing listener
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+      updateView();
+    });
+  </script>
+</body>
+</html>
