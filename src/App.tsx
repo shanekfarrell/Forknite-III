@@ -6,9 +6,10 @@ import CardCarousel3D from './components/CardCarousel3D';
 interface VideoScrubberProps {
   src: string;
   className?: string;
+  scrubMode?: 'mouse' | 'scroll';
 }
 
-function VideoScrubber({ src, className }: VideoScrubberProps) {
+function VideoScrubber({ src, className, scrubMode = 'mouse' }: VideoScrubberProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const prevXRef = useRef<number | null>(null);
   const targetTimeRef = useRef<number>(0);
@@ -32,40 +33,73 @@ function VideoScrubber({ src, className }: VideoScrubberProps) {
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const video = videoRef.current;
-      if (!video) return;
+    if (scrubMode === 'scroll') {
+      const handleScroll = () => {
+        const video = videoRef.current;
+        if (!video) return;
 
-      const duration = video.duration;
-      if (!duration || isNaN(duration)) return;
+        const duration = video.duration;
+        if (!duration || isNaN(duration)) return;
 
-      const currentX = e.clientX;
-      if (prevXRef.current === null) {
+        // Calculate scroll progress across the document or viewport
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+        if (scrollHeight <= 0) return;
+
+        const scrollFraction = scrollTop / scrollHeight;
+        const newTargetTime = scrollFraction * duration;
+        
+        targetTimeRef.current = Math.max(0, Math.min(duration, newTargetTime));
+
+        if (!isSeekingRef.current) {
+          isSeekingRef.current = true;
+          video.currentTime = targetTimeRef.current;
+        }
+      };
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      // Initial trigger to sync with scroll position
+      handleScroll();
+
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+      };
+    } else {
+      const handleMouseMove = (e: MouseEvent) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const duration = video.duration;
+        if (!duration || isNaN(duration)) return;
+
+        const currentX = e.clientX;
+        if (prevXRef.current === null) {
+          prevXRef.current = currentX;
+          return;
+        }
+
+        const delta = currentX - prevXRef.current;
         prevXRef.current = currentX;
-        return;
-      }
 
-      const delta = currentX - prevXRef.current;
-      prevXRef.current = currentX;
+        const SENSITIVITY = 0.8;
+        const timeOffset = -(delta / window.innerWidth) * SENSITIVITY * duration;
 
-      const SENSITIVITY = 0.8;
-      const timeOffset = (delta / window.innerWidth) * SENSITIVITY * duration;
+        let newTargetTime = targetTimeRef.current + timeOffset;
+        newTargetTime = Math.max(0, Math.min(duration, newTargetTime));
+        targetTimeRef.current = newTargetTime;
 
-      let newTargetTime = targetTimeRef.current + timeOffset;
-      newTargetTime = Math.max(0, Math.min(duration, newTargetTime));
-      targetTimeRef.current = newTargetTime;
+        if (!isSeekingRef.current) {
+          isSeekingRef.current = true;
+          video.currentTime = targetTimeRef.current;
+        }
+      };
 
-      if (!isSeekingRef.current) {
-        isSeekingRef.current = true;
-        video.currentTime = targetTimeRef.current;
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
+      window.addEventListener('mousemove', handleMouseMove);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [scrubMode]);
 
   return (
     <video
@@ -287,7 +321,7 @@ export default function App() {
 
             {/* Dynamic Capsule Filter Toggle - Recreating screenshot style 2 exactly */}
             <nav className="relative">
-              <div className="bg-[#0c0c10] p-1.5 rounded-full flex items-center gap-0.5 shadow-md">
+              <div className={`p-1.5 rounded-full flex items-center gap-0.5 shadow-md liquid-glass ${isDark ? 'bg-black/30' : 'bg-white/30'}`}>
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab;
                   return (
@@ -297,9 +331,11 @@ export default function App() {
                         setActiveTab(tab);
                         triggerToast(`Navigated to ${tab}`);
                       }}
-                      className="relative px-5 py-1.5 text-xs font-medium tracking-wide rounded-full transition-colors duration-200 cursor-pointer text-center whitespace-nowrap outline-none border-none"
+                      className="relative px-5 py-1.5 text-xs font-medium tracking-wide rounded-full transition-colors duration-200 cursor-pointer text-center whitespace-nowrap outline-none border-none liquid-glass"
                       style={{
-                        color: isActive ? '#0a0a0c' : '#a3a3a3',
+                        color: isActive 
+                          ? (isDark ? '#0a0a0c' : '#ffffff') 
+                          : (isDark ? '#a3a3a3' : '#6b7280'),
                       }}
                       id={`nav-tab-${tab.toLowerCase()}`}
                     >
@@ -307,7 +343,7 @@ export default function App() {
                       {isActive && (
                         <motion.div
                           layoutId="active-pill"
-                          className="absolute inset-0 bg-white rounded-full z-0"
+                          className={`absolute inset-0 rounded-full z-0 ${isDark ? 'bg-white' : 'bg-neutral-950'}`}
                           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
@@ -360,42 +396,29 @@ export default function App() {
                         
                         {/* Discover Pill Button */}
                         <button
-                          onClick={() => triggerToast('Initiating visual studio platform setup...')}
-                          className="px-8 py-3 bg-neutral-950 hover:bg-neutral-800 active:scale-95 text-white text-xs font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+                          onClick={() => {
+                            setActiveTab('Inspiration');
+                            triggerToast('Navigated to Inspiration');
+                          }}
+                          className="px-8 py-3 text-neutral-950 text-xs font-semibold rounded-full shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer liquid-glass-strong bg-neutral-950/5 hover:bg-neutral-950/15"
                           id="btn-discover"
                         >
                           Discover
-                        </button>
-
-                        {/* View Specs Action (Glass Pill button layout) */}
-                        <button
-                          onClick={() => triggerToast('Opening code inspection panel (Specifications)...')}
-                          className="flex items-center gap-2.5 px-6 py-3 bg-neutral-50/70 hover:bg-neutral-100/90 active:scale-95 text-neutral-800 text-xs font-semibold rounded-full border border-neutral-200/50 backdrop-blur-md transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md"
-                          id="btn-view-specs"
-                        >
-                          <span className="w-5 h-5 rounded-full bg-white/80 border border-neutral-200/40 flex items-center justify-center shadow-xs">
-                            <Play className="w-2 h-2 text-neutral-950 fill-neutral-950 ml-0.5" />
-                          </span>
-                          <span>View Specs</span>
                         </button>
 
                       </div>
 
                     </div>
 
-                    {/* RIGHT HALF SCREEN: Left completely empty and clean, as requested */}
-                    <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative">
-                      {/* Blank Space with very subtle aesthetic guidelines for subsequent components placeholder */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="relative w-full max-w-xs aspect-square rounded-2xl border border-dashed border-neutral-100 flex flex-col items-center justify-center p-6 text-center opacity-60">
-                          <Globe className="w-6 h-6 text-neutral-200 mb-2" />
-                          <span className="text-[11px] font-mono text-neutral-300 uppercase tracking-widest block mb-1">
-                            Right Screen Half
-                          </span>
-                          <span className="text-[10px] text-neutral-400">
-                            Intentionally left blank for your modular custom components
-                          </span>
-                        </div>
+                    {/* RIGHT HALF SCREEN: Replaced with the user-provided Laptop image */}
+                    <div className="hidden md:flex flex-col items-center justify-center p-4 h-full relative z-20 overflow-hidden">
+                      <div className="w-full max-w-md aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-neutral-200/50 bg-[#c0c0c8]/20 flex items-center justify-center">
+                        <img
+                          src="https://raw.githubusercontent.com/shanekfarrell/Forknite-III/main/assets/.aistudio/Laptop%20Image.png"
+                          alt="Laptop Reference Layout"
+                          className="w-full h-full object-cover select-none"
+                          referrerPolicy="no-referrer"
+                        />
                       </div>
                     </div>
 
@@ -808,7 +831,7 @@ export default function App() {
                     <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative overflow-hidden flex-1">
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div 
-                          className="relative w-full max-w-md aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-neutral-200/50 bg-[#0c0c10]"
+                          className="relative w-full max-w-[320px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-neutral-200/50 bg-[#0c0c10]"
                           style={{
                             transform: `translate(${mousePos.x}px, ${mousePos.y}px) scale(1.05)`,
                             transition: 'transform 0.1s ease-out'
@@ -880,6 +903,17 @@ export default function App() {
                           </p>
                         </div>
 
+                        {/* Midjourney */}
+                        <div className="group">
+                          <h4 className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#34d399]" />
+                            Midjourney
+                          </h4>
+                          <p className="text-[13px] text-[#52525b] mt-1.5 leading-relaxed">
+                            <span className="font-medium text-neutral-800">premium cinematic assets</span>. Go to <a href="https://www.midjourney.com/explore?tab=video_top" target="_blank" rel="noopener noreferrer" className="text-neutral-700 underline hover:text-black font-semibold">midjourney.com</a>. The advantage here is you can right click on a video, open it and it is hosted by Midjourney. That means you can just copy the URL and insert it in your video.
+                          </p>
+                        </div>
+
                         {/* Higgsfield */}
                         <div className="group">
                           <h4 className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
@@ -938,7 +972,7 @@ export default function App() {
                                 navigator.clipboard.writeText('Reverse the video once it finishes so it loops smoothly from end to beginning.');
                                 triggerToast('Copied Prompt 1');
                               }}
-                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer"
+                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer border border-neutral-200"
                             >
                               Copy
                             </button>
@@ -959,7 +993,7 @@ export default function App() {
                                 navigator.clipboard.writeText(`The video is set to muted, playsInline, preload="auto" and does NOT autoplay. Use a mousemove event listener on window. Track prevX, compute delta = currentX - prevX, convert to a time offset: (delta / window.innerWidth) * SENSITIVITY * video.duration where SENSITIVITY = 0.8. Clamp targetTime between 0 and video.duration. Use video.currentTime to seek, and an onSeeked handler to queue the next seek if targetTime has moved, to prevent seek-flooding.`);
                                 triggerToast('Copied Prompt 2');
                               }}
-                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer"
+                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer border border-neutral-200"
                             >
                               Copy
                             </button>
@@ -980,7 +1014,7 @@ export default function App() {
                                 navigator.clipboard.writeText(`The video is muted, playsInline, preload="auto". It does NOT autoplay.\nThe video scrubs forward/backward based on horizontal mouse movement. Use a mousemove event listener on window. Track prevX, compute delta = currentX - prevX, convert to a time offset: (delta / window.innerWidth) * SENSITIVITY * video.duration where SENSITIVITY = 0.8. Clamp targetTime between 0 and video.duration. Use video.currentTime to seek, and an onSeeked handler to queue the next seek if targetTime has moved, preventing seek-flooding.`);
                                 triggerToast('Copied Prompt 3');
                               }}
-                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-400 hover:text-black bg-white px-2 py-0.5 rounded border border-neutral-200 cursor-pointer"
+                              className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer border border-neutral-200"
                             >
                               Copy
                             </button>
@@ -1003,7 +1037,7 @@ export default function App() {
                                 navigator.clipboard.writeText('Remove all overlays. Set the video opacity to 100%. Adjust text colour for contrast instead of adding a dark overlay.');
                                 triggerToast('Copied overlay prompt');
                               }}
-                              className="absolute right-2 top-2 text-[9px] font-mono text-neutral-500 hover:text-neutral-900 bg-white px-1.5 py-0.5 rounded border border-neutral-200 cursor-pointer"
+                              className="absolute right-2 top-2 text-[9px] font-mono text-neutral-500 hover:text-neutral-950 liquid-glass px-1.5 py-0.5 rounded cursor-pointer border border-[#ffe066]/40"
                             >
                               Copy
                             </button>
@@ -1041,26 +1075,26 @@ export default function App() {
                       </span>
 
                       <h1 className="font-display font-medium text-[36px] sm:text-[44px] md:text-[48px] lg:text-[52px] leading-[1.08] tracking-[-0.03em] text-white mb-6">
-                        Build it in Google AI Studio. Faster than you think.
+                        Build it in Google AI Studio or Claude Code.
                       </h1>
 
                       <p className="text-neutral-300 text-sm max-w-md leading-relaxed font-sans mb-7">
-                        Go to <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-white underline hover:text-neutral-200">aistudio.google.com</a> and click <span className="font-semibold text-white">Build</span> to configure custom visual experiences in an instant.
+                        Go to <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-white underline hover:text-neutral-200">aistudio.google.com</a> and click <span className="font-semibold text-white">Build</span> to configure custom visual experiences in an instant - or use a Pro Claude Code Account.
                       </p>
 
                       <a
                         href="https://aistudio.google.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-8 py-3 bg-white hover:bg-neutral-100 active:scale-95 text-neutral-950 text-xs font-semibold rounded-full shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-2"
+                        className="px-8 py-3 text-white text-xs font-semibold rounded-full shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center gap-2 liquid-glass-strong hover:bg-white/10"
                         id="btn-goto-aistudio"
                       >
-                        <span className="text-neutral-950">Go to aistudio.google.com</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-neutral-950" />
+                        <span className="text-white">Go to aistudio.google.com</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-white" />
                       </a>
                     </div>
 
-                    {/* RIGHT HALF - High-fidelity video block with cursor-driven interactive scrubbing */}
+                    {/* RIGHT HALF - High-fidelity video block with scroll-driven interactive scrubbing */}
                     <div className="hidden md:flex flex-col items-center justify-center p-8 h-full relative overflow-hidden flex-1">
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div 
@@ -1073,6 +1107,7 @@ export default function App() {
                           <VideoScrubber
                             src="https://cdn.midjourney.com/video/b9cbe0f6-7646-40e3-a5ba-40ceb8a64661/0.mp4"
                             className="w-full h-full object-cover"
+                            scrubMode="scroll"
                           />
                         </div>
                       </div>
@@ -1090,8 +1125,8 @@ export default function App() {
                 </div>
               </section>
 
-              {/* SECTION 2: THE SEQUENCE STEP 1 & 2 - bg-[#f7f6f2] (warm off-white / sand) */}
-              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#f7f6f2] text-neutral-900 relative px-6 md:px-16 lg:px-24">
+              {/* SECTION 2: THE SEQUENCE STEP 1 & 2 - Pure White Background B&W */}
+              <section className="w-full h-screen min-h-screen py-12 flex flex-col justify-center bg-white text-neutral-900 relative px-6 md:px-16 lg:px-24">
                 <div className="w-full max-w-7xl mx-auto">
                   
                   {/* Small Header */}
@@ -1109,64 +1144,64 @@ export default function App() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                     
-                    {/* Step 1 - Olive Husk background */}
-                    <div className="bg-[#483E25] text-white rounded-2xl p-6 sm:p-8 border border-[#5a4d2e] shadow-md space-y-4 relative">
+                    {/* Step 1 - Liquid Glass layout */}
+                    <div className="liquid-glass text-neutral-900 rounded-2xl p-6 sm:p-8 bg-white/60 !border !border-neutral-300/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] space-y-4 relative">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-mono font-bold text-neutral-300">01</span>
-                        <h3 className="text-base font-semibold text-white">Upload Reference & Base Layout</h3>
+                        <span className="text-xs font-mono font-bold text-neutral-400">01</span>
+                        <h3 className="text-base font-semibold text-neutral-950">Upload Reference & Base Layout</h3>
                       </div>
-                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                      <p className="text-[13px] text-neutral-600 leading-relaxed">
                         Upload your reference screenshots. Add the nav bar, hero layout, and any elements you captured earlier. Prompt:
                       </p>
                       
-                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                      <div className="bg-neutral-50/70 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-[12px] font-mono text-neutral-800 relative leading-relaxed">
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText('Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout.');
                             triggerToast('Copied Prompt 1');
                           }}
-                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer"
                         >
                           Copy
                         </button>
                         "Build me a hero section exactly as in this image — same font weight, same positioning, same spacing hierarchy. Do not use your default layout."
                       </div>
 
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 text-xs text-neutral-350 leading-relaxed">
-                        <span className="font-bold text-white block mb-0.5">PRO TIP — THE 100VH RULE:</span>
-                        Tell the AI to make every section <span className="font-mono text-white font-semibold bg-white/10 px-1.5 py-0.5 rounded">100VH</span>. It gives the content breathing room.
+                      <div className="bg-neutral-50/50 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-xs text-neutral-500 leading-relaxed">
+                        <span className="font-bold text-neutral-800 block mb-0.5">PRO TIP — THE 100VH RULE:</span>
+                        Tell the AI to make every section <span className="font-mono text-neutral-950 font-semibold bg-neutral-200/50 px-1.5 py-0.5 rounded">100VH</span>. It gives the content breathing room.
                       </div>
                     </div>
 
-                    {/* Step 2 - Olive Husk background */}
-                    <div className="bg-[#483E25] text-white rounded-2xl p-6 sm:p-8 border border-[#5a4d2e] shadow-md space-y-4 relative">
+                    {/* Step 2 - Liquid Glass layout */}
+                    <div className="liquid-glass text-neutral-900 rounded-2xl p-6 sm:p-8 bg-white/60 !border !border-neutral-300/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] space-y-4 relative">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-mono font-bold text-neutral-300">02</span>
-                        <h3 className="text-base font-semibold text-white">Add Video Background</h3>
+                        <span className="text-xs font-mono font-bold text-neutral-400">02</span>
+                        <h3 className="text-base font-semibold text-neutral-950">Add Video Background</h3>
                       </div>
-                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                      <p className="text-[13px] text-neutral-600 leading-relaxed">
                         Add your video background. Right-click your video and open it in a new tab. Copy that URL. In AI Studio, prompt:
                       </p>
 
-                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                      <div className="bg-neutral-50/70 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-[12px] font-mono text-neutral-800 relative leading-relaxed">
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText('Replace the background with this video: [URL].');
                             triggerToast('Copied Prompt 2');
                           }}
-                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer"
                         >
                           Copy
                         </button>
                         "Replace the background with this video: [URL]."
                       </div>
 
-                      <p className="text-[12.5px] text-neutral-200 leading-relaxed">
+                      <p className="text-[12.5px] text-neutral-600 leading-relaxed">
                         Then specify the behaviour — loop, play once, or scroll-controlled.
                       </p>
 
-                      <div className="bg-white/5 rounded-xl p-4 border border-white/5 text-xs text-neutral-350 leading-relaxed">
-                        <span className="font-bold text-white block mb-0.5">SET EXPLICIT BEHAVIOR:</span>
+                      <div className="bg-neutral-50/50 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-xs text-neutral-500 leading-relaxed">
+                        <span className="font-bold text-neutral-800 block mb-0.5">SET EXPLICIT BEHAVIOR:</span>
                         The AI will default to looping with a dark overlay unless told otherwise. Be specific about which of the three techniques you want.
                       </div>
                     </div>
@@ -1176,8 +1211,8 @@ export default function App() {
                 </div>
               </section>
 
-              {/* SECTION 3: THE SEQUENCE STEP 3 & 4 - bg-[#f1f3f6] (cool off-white / mist) */}
-              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#f1f3f6] text-neutral-900 relative px-6 md:px-16 lg:px-24">
+              {/* SECTION 3: THE SEQUENCE STEP 3 & 4 - Pure White Background B&W */}
+              <section className="w-full h-screen min-h-screen py-12 flex flex-col justify-center bg-white text-neutral-900 relative px-6 md:px-16 lg:px-24">
                 <div className="w-full max-w-7xl mx-auto">
                   
                   {/* Small Header */}
@@ -1195,23 +1230,23 @@ export default function App() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                     
-                    {/* Step 3 - Ocean Dust background */}
-                    <div className="bg-[#516985] text-white rounded-2xl p-6 sm:p-8 border border-[#5d7796] shadow-md space-y-4 relative">
+                    {/* Step 3 - Liquid Glass layout */}
+                    <div className="liquid-glass text-neutral-900 rounded-2xl p-6 sm:p-8 bg-white/60 !border !border-neutral-300/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] space-y-4 relative">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-mono font-bold text-neutral-300">03</span>
-                        <h3 className="text-base font-semibold text-white">Check Mobile</h3>
+                        <span className="text-xs font-mono font-bold text-neutral-400">03</span>
+                        <h3 className="text-base font-semibold text-neutral-950">Check Mobile</h3>
                       </div>
-                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                      <p className="text-[13px] text-neutral-600 leading-relaxed">
                         Resize your browser to 390px wide. If anything breaks, prompt:
                       </p>
 
-                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                      <div className="bg-neutral-50/70 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-[12px] font-mono text-neutral-800 relative leading-relaxed">
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText('Optimise for mobile. Stack sections vertically. Make the headline font size 32px minimum. Ensure the CTA button is full width and thumb-reachable.');
                             triggerToast('Copied Prompt 3');
                           }}
-                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer"
                         >
                           Copy
                         </button>
@@ -1219,31 +1254,31 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Step 4 - Ocean Dust background */}
-                    <div className="bg-[#516985] text-white rounded-2xl p-6 sm:p-8 border border-[#5d7796] shadow-md space-y-4 relative">
+                    {/* Step 4 - Liquid Glass layout */}
+                    <div className="liquid-glass text-neutral-900 rounded-2xl p-6 sm:p-8 bg-white/60 !border !border-neutral-300/80 shadow-[0_4px_24px_rgba(0,0,0,0.04)] space-y-4 relative">
                       <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-mono font-bold text-neutral-300">04</span>
-                        <h3 className="text-base font-semibold text-white">Refine Typography</h3>
+                        <span className="text-xs font-mono font-bold text-neutral-400">04</span>
+                        <h3 className="text-base font-semibold text-neutral-950">Refine Typography</h3>
                       </div>
-                      <p className="text-[13px] text-neutral-200 leading-relaxed">
+                      <p className="text-[13px] text-neutral-600 leading-relaxed">
                         AI defaults to Inter, Roboto, or Arial. These signal "generated." Download Helvetica Neue and prompt:
                       </p>
 
-                      <div className="bg-black/25 rounded-xl p-4 border border-white/5 text-[12px] font-mono text-white relative leading-relaxed">
+                      <div className="bg-neutral-50/70 backdrop-blur-md rounded-xl p-4 border border-neutral-200/40 text-[12px] font-mono text-neutral-800 relative leading-relaxed">
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText('Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts.');
                             triggerToast('Copied Prompt 4');
                           }}
-                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-white/70 hover:text-white bg-white/10 hover:bg-white/15 px-2 py-0.5 rounded border border-white/10 cursor-pointer shadow-xs"
+                          className="absolute right-3 top-3 text-[10px] font-mono font-medium text-neutral-500 hover:text-neutral-950 liquid-glass px-2 py-0.5 rounded cursor-pointer"
                         >
                           Copy
                         </button>
                         "Use Helvetica Neue for all sans-serif elements. Do not fall back to system fonts."
                       </div>
 
-                      <p className="text-[12.5px] text-neutral-200 leading-relaxed">
-                        Or find a font you like on <a href="https://fontshare.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-white hover:text-neutral-100 underline">fontshare.com</a>, 100% free & higher quality than most Google Fonts.
+                      <p className="text-[12.5px] text-neutral-550 leading-relaxed">
+                        Or find a font you like on <a href="https://fontshare.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-neutral-800 hover:text-black underline">fontshare.com</a>, 100% free & higher quality than most Google Fonts.
                       </p>
                     </div>
 
@@ -1252,25 +1287,25 @@ export default function App() {
                 </div>
               </section>
 
-              {/* SECTION 4: THE MATRIX CRITERIA - bg-[#fafbf9] (botanical eggshell) with Meadow Spiral container */}
-              <section className="w-full min-h-screen py-24 flex flex-col justify-center bg-[#fafbf9] text-neutral-900 relative px-6 md:px-16 lg:px-24">
+              {/* SECTION 4: THE MATRIX CRITERIA - Pure White Background B&W */}
+              <section className="w-full h-screen min-h-screen py-12 flex flex-col justify-center bg-white text-neutral-900 relative px-6 md:px-16 lg:px-24">
                 <div className="w-full max-w-7xl mx-auto flex items-center justify-center">
                   
-                  <div className="w-full max-w-3xl bg-[#3E4F2F] text-white rounded-[32px] p-8 sm:p-12 border border-[#4d623b] shadow-xl relative overflow-hidden backdrop-blur-xs">
+                  <div className="w-full max-w-3xl liquid-glass text-neutral-900 rounded-[32px] p-8 sm:p-12 bg-white/40 border border-neutral-200/50 shadow-xl relative overflow-hidden">
                     
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none flex items-center justify-center">
-                      <Check className="w-10 h-10 text-white/20 transform translate-x-4 -translate-y-4" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-neutral-950/5 rounded-bl-full pointer-events-none flex items-center justify-center">
+                      <Check className="w-10 h-10 text-neutral-400/20 transform translate-x-4 -translate-y-4" />
                     </div>
 
-                    <span className="text-[10px] font-mono tracking-widest text-[#d1fae5] uppercase block mb-2 font-semibold">
+                    <span className="text-[10px] font-mono tracking-widest text-neutral-500 uppercase block mb-2 font-semibold">
                       CRITERIA MATRIX
                     </span>
                     
-                    <h3 className="text-2xl sm:text-3xl font-display font-semibold text-white mb-6">
+                    <h3 className="text-2xl sm:text-3xl font-display font-semibold text-neutral-950 mb-6">
                       Know when to stop.
                     </h3>
 
-                    <p className="text-sm text-emerald-100 leading-relaxed mb-8">
+                    <p className="text-sm text-neutral-600 leading-relaxed mb-8">
                       Ask yourself four questions before prompting again:
                     </p>
 
@@ -1282,26 +1317,26 @@ export default function App() {
                         { q: "Does it work on mobile?", desc: "Stops overlaps and scales typography down correctly." },
                         { q: "Does the background enhance rather than distract?", desc: "Harmonious balance without overpowering overlays." }
                       ].map((item, index) => (
-                        <div key={index} className="flex gap-4 items-start border-b border-white/10 pb-4 last:border-0 last:pb-0">
-                          <span className="w-6 h-6 rounded-full border border-emerald-400 bg-emerald-500/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-emerald-300 mt-0.5 select-none">
+                        <div key={index} className="flex gap-4 items-start border-b border-neutral-200/50 pb-4 last:border-0 last:pb-0">
+                          <span className="w-6 h-6 rounded-full border border-neutral-300 bg-neutral-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-neutral-900 mt-0.5 select-none">
                             ✓
                           </span>
                           <div>
-                            <h4 className="text-base font-semibold text-white">{item.q}</h4>
-                            <p className="text-xs text-neutral-200 mt-0.5">{item.desc}</p>
+                            <h4 className="text-base font-semibold text-neutral-950">{item.q}</h4>
+                            <p className="text-xs text-neutral-500 mt-0.5">{item.desc}</p>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <p className="text-sm text-emerald-100 leading-relaxed mt-8">
-                      If yes to all <span className="font-semibold text-white">four</span> — you are done.
+                    <p className="text-sm text-neutral-600 leading-relaxed mt-8">
+                      If yes to all <span className="font-semibold text-neutral-950">four</span> — you are done.
                     </p>
 
-                    <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between text-[10.5px] font-mono text-neutral-300 select-none">
+                    <div className="mt-8 pt-6 border-t border-neutral-200/50 flex items-center justify-between text-[10.5px] font-mono text-neutral-450 select-none">
                       <span>blueprint verified</span>
-                      <span className="text-emerald-300 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                      <span className="text-neutral-950 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-950" />
                         OPTIMIZED
                       </span>
                     </div>
